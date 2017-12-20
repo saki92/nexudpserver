@@ -28,11 +28,12 @@ unsigned int ioctl_pass(void *custom_cmd_buf, int custom_cmd_buf_len);
 char            *ifname = "wlan0";
 unsigned int    custom_cmd = 0;
 bool            custom_cmd_set = true;
-unsigned int    custom_cmd_buf_len;
+unsigned int    custom_cmd_buf_len = 4;
 void            *custom_cmd_buf;
+void            *cmd_buf;
 
-unsigned short low_cmd;
-unsigned short high_cmd;
+unsigned char low_cmd;
+unsigned char high_cmd;
 
 
 /*
@@ -43,7 +44,7 @@ void error(char *msg) {
     exit(1);
 }
 unsigned int     ret = 0;
-unsigned short *temp_buf;
+unsigned char *temp_buf;
 
 int main(int argc, char **argv) {
     int     sockfd; /* socket */
@@ -174,12 +175,21 @@ int main(int argc, char **argv) {
 
 unsigned int ioctl_pass(void *custom_cmd_buf, int custom_cmd_buf_len) {
     nexio = nex_init_ioctl(ifname);
-    temp_buf = (unsigned short *)custom_cmd_buf;
-    low_cmd = *temp_buf;
-    high_cmd = *(temp_buf+1);
-
+    temp_buf = (unsigned char *)custom_cmd_buf;
+    low_cmd = *(temp_buf+custom_cmd_buf_len-4);
+    high_cmd = *(temp_buf+custom_cmd_buf_len-3);
     custom_cmd = low_cmd ^ (high_cmd<<8);
-    //printf("%X\n",custom_cmd);
-    ret = nex_ioctl(nexio, custom_cmd, custom_cmd_buf, custom_cmd_buf_len, true);
-    return ret;
+
+    if(custom_cmd != 711 && custom_cmd_buf_len == 4){
+        cmd_buf = malloc(custom_cmd_buf_len);
+        ret = nex_ioctl(nexio, custom_cmd, cmd_buf, custom_cmd_buf_len, false);
+        printf("Passed ioctl is %d",custom_cmd);
+    }
+    else{
+        cmd_buf = malloc(custom_cmd_buf_len-4);
+        memcpy(cmd_buf, custom_cmd_buf, custom_cmd_buf_len-4);
+        printf("%X\t%X\t%X\n",low_cmd,high_cmd,custom_cmd);
+        ret = nex_ioctl(nexio, custom_cmd, cmd_buf, custom_cmd_buf_len, true);
+        return ret;
+    }  
 }
